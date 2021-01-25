@@ -7,6 +7,7 @@ import scipy.io as scio
 import os
 from PIL import Image
 from torch.autograd import Variable
+from ptflops import get_model_complexity_info
 import model as model
 import anchor as anchor
 from tqdm import tqdm
@@ -23,43 +24,46 @@ fy = -587.07
 u0 = 320
 v0 = 240
 
-# DataHyperParms 
-TrainImgFrames = 72757
-TestImgFrames = 8252
+# 使用1/4采样的数据
+TrainImgFrames = int(72757)
+TestImgFrames = int(8252)
+
 keypointsNumber = 14
 cropWidth = 176
 cropHeight = 176
-batch_size = 64
+batch_size = 32
 learning_rate = 0.00035
 Weight_Decay = 1e-4
 nepoch = 35
-RegLossFactor = 3
-spatialFactor = 0.5
 RandCropShift = 5
 RandshiftDepth = 1
 RandRotate = 180 
 RandScale = (1.0, 0.5)
 xy_thres = 110
 depth_thres = 150
+depth_pixel_ratio = cropHeight / 2 / depth_thres
+downsample = 16
 
 randomseed = 12345
 random.seed(randomseed)
 np.random.seed(randomseed)
 torch.manual_seed(randomseed)
 
-save_dir = './result/NYU_batch_64_12345'
+save_dir = './result/NYU_batch_32_12345'
 
 try:
     os.makedirs(save_dir)
 except OSError:
     pass
 
-trainingImageDir = '/data/zhangboshen/CODE/Anchor_Pose_fpn/data/nyu/train_nyu/'
-testingImageDir = '/data/zhangboshen/CODE/Anchor_Pose_fpn/data/nyu/test_nyu/'  # mat images
-test_center_file = '../data/nyu/nyu_center_test.mat'
-test_keypoint_file = '../data/nyu/nyu_keypointsUVD_test.mat'
+trainingImageDir = '/home/dejian/Dataset/nyu/preprocessed/train/'
 train_center_file = '../data/nyu/nyu_center_train.mat'
 train_keypoint_file = '../data/nyu/nyu_keypointsUVD_train.mat'
+
+testingImageDir = '/home/dejian/Dataset/nyu/preprocessed/test/'
+test_center_file = '../data/nyu/nyu_center_test.mat'
+test_keypoint_file = '../data/nyu/nyu_keypointsUVD_test.mat'
+
 MEAN = np.load('../data/nyu/nyu_mean.npy')
 STD = np.load('../data/nyu/nyu_std.npy')
 model_dir = '../model/NYU.pth'
@@ -190,7 +194,8 @@ def dataPreprocess(index, img, keypointsUVD, center, mean, std, lefttop_pixel, r
 
     labelOutputs[:,1] = label_xy[:,0]
     labelOutputs[:,0] = label_xy[:,1]
-    labelOutputs[:,2] = (keypointsUVD[index,:,2] - center[index][0][2])*RandomScale   # Z  
+    # labelOutputs[:,2] = (keypointsUVD[index,:,2] - center[index][0][2])*RandomScale   # Z  
+    labelOutputs[:,2] = (keypointsUVD[index,:,2] - center[index][0][2])*RandomScale*depth_pixel_ratio
     
     imageOutputs = np.asarray(imageOutputs)
     imageNCHWOut = imageOutputs.transpose(2, 0, 1)  # [H, W, C] --->>>  [C, H, W]
@@ -248,15 +253,16 @@ def train():
     net = model.A2J_model(num_classes = keypointsNumber)
     net = net.cuda()
     
-    post_precess = anchor.post_process(shape=[cropHeight//16,cropWidth//16],stride=16,P_h=None, P_w=None)
-    criterion = anchor.A2J_loss(shape=[cropHeight//16,cropWidth//16],thres = [16.0,32.0],stride=16,\
-        spatialFactor=spatialFactor,img_shape=[cropHeight, cropWidth],P_h=None, P_w=None)
+    post_precess = anchor.A2JProcess(cropHeight, keypointsNumber, downsample)
+    criterion = anchor.A2JLoss(cropHeight, keypointsNumber, downsample)
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=Weight_Decay)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.2)
     
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%Y/%m/%d %H:%M:%S', \
                     filename=os.path.join(save_dir, 'train.log'), level=logging.INFO)
     logging.info('======================================================')
+    macs, params = get_model_complexity_info(net, (1,cropHeight,cropWidth),as_strings=True,print_per_layer_stat=False)
+    logging.info('macs=%s, params=%s'%(macs, params))
 
     for epoch in range(nepoch):
         net = net.train()
@@ -273,12 +279,11 @@ def train():
             img, label = img.cuda(), label.cuda()     
             
             heads  = net(img)  
-            #print(regression)     
             optimizer.zero_grad()  
             
             Cls_loss, Reg_loss = criterion(heads, label)
 
-            loss = 1*Cls_loss + Reg_loss*RegLossFactor
+            loss = Cls_loss + Reg_loss
             loss.backward()
             optimizer.step()
 
@@ -320,13 +325,13 @@ def train():
                 with torch.no_grad():
                     img, label = img.cuda(), label.cuda()       
                     heads = net(img)  
-                    pred_keypoints = post_precess(heads, voting=False)
+                    pred_keypoints = post_precess(heads)
                     output = torch.cat([output,pred_keypoints.data.cpu()], 0)
 
             result = output.cpu().data.numpy()
             Error_test = errorCompute(result,keypointsUVD_test, center_test)
             print('epoch: ', epoch, 'Test error:', Error_test)
-            saveNamePrefix = '%s/net_%d_wetD_' % (save_dir, epoch) + str(Weight_Decay) + '_depFact_' + str(spatialFactor) + '_RegFact_' + str(RegLossFactor) + '_rndShft_' + str(RandCropShift)
+            saveNamePrefix = '%s/net_%d_wetD_' % (save_dir, epoch) + str(Weight_Decay) + '_rndShft_' + str(RandCropShift)
             torch.save(net.state_dict(), saveNamePrefix + '.pth')
 
         # log
@@ -341,7 +346,7 @@ def test():
     net = net.cuda()
     net.eval()
     
-    post_precess = anchor.post_process(shape=[cropHeight//16,cropWidth//16],stride=16,P_h=None, P_w=None)
+    post_precess = anchor.A2JProcess(cropHeight, keypointsNumber, downsample)
 
     output = torch.FloatTensor()
     torch.cuda.synchronize() 
@@ -350,7 +355,7 @@ def test():
 
             img, label = img.cuda(), label.cuda()    
             heads = net(img)  
-            pred_keypoints = post_precess(heads,voting=False)
+            pred_keypoints = post_precess(heads)
             output = torch.cat([output,pred_keypoints.data.cpu()], 0)
         
     torch.cuda.synchronize()       
@@ -363,6 +368,7 @@ def test():
 
 def errorCompute(source, target, center):
     assert np.shape(source)==np.shape(target), "source has different shape with target"
+    source[:,:,2] = source[:,:,2] / depth_pixel_ratio
 
     Test1_ = source.copy()
     target_ = target.copy()
@@ -399,10 +405,27 @@ def errorCompute(source, target, center):
 
     errors = np.sqrt(np.sum((labels - outputs) ** 2, axis=2))
 
+    xyz_distance(outputs, labels)
+    joint_distance(outputs, labels)
+
     return np.mean(errors)
    
 
+def xyz_distance(pred, gt):
+    out = np.sqrt((gt - pred) ** 2)
+    out = np.mean(out, axis=0)
+    out = np.mean(out, axis=0)
+    print('x = %f, y = %f, z = %f'%(out[0], out[1], out[2]))
+
+
+def joint_distance(pred, gt):
+    out = np.sqrt(np.sum((pred - gt) ** 2, axis=2))
+    out = np.mean(out, axis=0)
+    for i in range(len(out)):
+        print('%.4f'%out[i], end='  ')
+    print()
    
+
 def writeTxt(result, center):
 
     resultUVD_ = result.copy()
@@ -447,7 +470,7 @@ def writeTxt(result, center):
 
 if __name__ == '__main__':
     train()
-    test()
+    # test()
     
     
       
