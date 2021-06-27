@@ -1,114 +1,31 @@
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a2j-anchor-to-joint-regression-network-for-3d/pose-estimation-on-hands-2017)](https://paperswithcode.com/sota/pose-estimation-on-hands-2017?p=a2j-anchor-to-joint-regression-network-for-3d) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a2j-anchor-to-joint-regression-network-for-3d/hand-pose-estimation-on-nyu-hands)](https://paperswithcode.com/sota/hand-pose-estimation-on-nyu-hands?p=a2j-anchor-to-joint-regression-network-for-3d)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a2j-anchor-to-joint-regression-network-for-3d/hand-pose-estimation-on-icvl-hands)](https://paperswithcode.com/sota/hand-pose-estimation-on-icvl-hands?p=a2j-anchor-to-joint-regression-network-for-3d) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a2j-anchor-to-joint-regression-network-for-3d/pose-estimation-on-itop-front-view)](https://paperswithcode.com/sota/pose-estimation-on-itop-front-view?p=a2j-anchor-to-joint-regression-network-for-3d)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a2j-anchor-to-joint-regression-network-for-3d/pose-estimation-on-itop-top-view)](https://paperswithcode.com/sota/pose-estimation-on-itop-top-view?p=a2j-anchor-to-joint-regression-network-for-3d)
+## 前言
 
+论文《改进的基于锚点的三维手部姿态估计网络》的官方实现
 
+Official implementation of paper "Improved 3D hand pose estimation network based on anchor"
 
-# A2J: Anchor-to-Joint Regression Network for 3D Articulated Pose Estimation from a Single Depth Image
-## Update (2020-6-16)
-We upload A2J's prediction results in pixel coordinates (i.e., UVD format) for NYU and ICVL datasets: https://github.com/zhangboshen/A2J/tree/master/result_nyu_icvl,
-Evaluation code (https://github.com/xinghaochen/awesome-hand-pose-estimation/tree/master/evaluation) can be applied for performance comparision among SoTA methods.
+危德健,王文明,王全玉,任好盼,高彦彦,王志.改进的基于锚点的三维手部姿态估计网络[J/OL].计算机应用:1-8[2021-06-27].http://kns.cnki.net/kcms/detail/51.1307.TP.20210603.1127.005.html.
 
-## Update (2020-3-23)
-We released our training code [here](https://github.com/zhangboshen/A2J/tree/master/src_train). 
+## 论文摘要
 
-## Introduction
-This is the official implementation for the paper, **"A2J: Anchor-to-Joint Regression Network for 3D Articulated Pose Estimation from a Single Depth Image"**, ICCV 2019. 
+近年来基于锚点的三维手部姿态估计方法比较流行，A2J(Anchor-to-Joint)是比较有代表性的方法之一。A2J 在深度图上密集地设置锚点，利用神经网络预测锚点到关键点的偏差以及每个锚点的权重。A2J 使用预测的偏差和权重，以加权求和的方式计算关键点的坐标，降低了网络回归结果中的噪声。虽然 A2J 简单高效，但是不恰当的网络结构和损失函数影响了网络的准确度，因此文中提出改进的网络 HigherA2J。首先，使用一个分支预测锚点到关键点的 XYZ 偏差，更好地利用深度图的3D 特性；其次，简化 A2J 的网络分支结构从而降低网络参数量；最后，设计关键点估计损失函数，结合关键点估计损失和偏差估计损失，有效提高估计准确度。在三个数据集 NYU,ICVL 和 HANDS 2017 上的实验结果显示，手部姿态估计的平均误差比A2J 都有所降低，分别降低了 0.32mm，0.35mm 和 0.10mm。
 
-In this paper, we propose a simple and effective approach termed A2J, for 3D hand and human pose estimation from a single depth image. Wide-range evaluations on 5 datasets demonstrate A2J's superiority.
+## 网络结构
 
-Please refer to our paper for more details, https://arxiv.org/abs/1908.09999.
+![](./fig/highera2j.png)
 
-![pipeline](https://github.com/zhangboshen/A2J/blob/master/fig/A2Jpipeline.png)
+## 效果
 
-If you find our work useful in your research or publication, please cite our work:
-```
-@inproceedings{A2J,
-author = {Xiong, Fu and Zhang, Boshen and Xiao, Yang and Cao, Zhiguo and Yu, Taidong and Zhou Tianyi, Joey and Yuan, Junsong},
-title = {A2J: Anchor-to-Joint Regression Network for 3D Articulated Pose Estimation from a Single Depth Image},
-booktitle = {Proceedings of the IEEE Conference on International Conference on Computer Vision (ICCV)},
-year = {2019}
-}
-```
-## Comparison with state-of-the-art methods
-![result_hand](https://github.com/zhangboshen/A2J/blob/master/fig/result_hand.png)
-![result_body](https://github.com/zhangboshen/A2J/blob/master/fig/result_body.png)
+![](./fig/compare_nyu.png)
 
-## A2J achieves 2nd place in HANDS2019 3D hand pose estimation Challenge
-#### Task 1: Depth-Based 3D Hand Pose Estimation
-![T1](https://github.com/zhangboshen/A2J/blob/master/fig/T1.jpg)
-#### Task 2: Depth-Based 3D Hand Pose Estimation while Interacting with Objects 
-![T2](https://github.com/zhangboshen/A2J/blob/master/fig/T2.jpg)
+![](./fig/compare_icvl.png)
 
+![](./fig/compare_hands2017.png)
 
+![](./fig/compare_hands2017.png)
 
-# About our code 
+![](./fig/result.png)
 
-## Dependencies
-Our code is tested under Ubuntu 16.04 environment with NVIDIA 1080Ti GPU, both Pytorch0.4.1 and Pytorch1.2 work (Pytorch1.0/1.1 should also work).
+# 致谢
 
-## code
-First clone this repository:  
-```python
-git clone https://github.com/zhangboshen/A2J
-```
-
-- `src` folder contains model definition, anchor, and test files for NYU, ICVL, HANDS2017, ITOP, K2HPD datasets.
-- `data` folder contains center point, bounding box, mean/std, and GT keypoints files for 5 datasets.
-
-Next you may download our pre-trained model files from:     
-- Baidu Yun: https://pan.baidu.com/s/10QBT7mKEyypSkZSaFLo1Vw    
-- Google Drive: https://drive.google.com/open?id=1fGe3K1mO934WPZEkHLCX7MNgmmgzRX4z
-
-Directory structure of this code should look like:  
-```
-A2J
-│   README.md
-│   LICENSE.md  
-│
-└───src
-│   │   ....py
-└───data
-│   │   hands2017
-│   │   icvl
-│   │   itop_side
-│   │   itop_top
-│   │   k2hpd
-│   │   nyu
-└───model
-│   │   HANDS2017.pth
-│   │   ICVL.pth
-│   │   ITOP_side.pth
-│   │   ITOP_top.pth
-│   │   K2HPD.pth
-│   │   NYU.pth
-```
-
-You may also have to download these datasets manually:  
-- NYU Hand Pose Dataset [[link](https://jonathantompson.github.io/)]
-- ICVL Hand Pose Dataset [[link](https://labicvl.github.io/hand.html)]
-- HANDS2017 Hand Pose Dataset [[link](https://competitions.codalab.org/competitions/17356)]
-- ITOP Body Pose Dataset [[link](https://www.alberthaque.com/projects/viewpoint_3d_pose/)]
-- K2HPD Body Pose Dataset [[link](http://www.sysu-hcp.net/kinect2-human-pose-dataset-k2hpd/)]
-
-After downloaded these datasets, you can follow the code from `data` folder (data_preprosess.py) to convert ICVL, NYU, ITOP, and K2HPD images to `.mat` files.
-
-Finally, simply run DATASET_NAME.py in the `src` folder to test our model. For example, you can reproduce our HANDS2017 results by running:    
-```python
-python hands2017.py
-```
-
-There are some optional configurations you can adjust in the DATASET_NAME.py files.
-
-Thanks *Gyeongsik et al.* for their nice work to provide precomputed center files (https://github.com/mks0601/V2V-PoseNet_RELEASE) for NYU, ICVL, HANDS2017 and ITOP datasets. This is really helpful to our work!
-
-
-
-# Qualitative Results
-#### [NYU](https://jonathantompson.github.io/NYU_Hand_Pose_Dataset.htm) hand pose dataset:
-![NYU_1](https://github.com/zhangboshen/A2J/blob/master/fig/NYU_1.png)
-&nbsp;
-
-#### [ITOP](https://www.alberthaque.com/projects/viewpoint_3d_pose/) body pose dataset:
-![ITOP_1](https://github.com/zhangboshen/A2J/blob/master/fig/ITOP_1.png)
-
+非常感谢 @zhangboshen 的论文和代码(https://github.com/zhangboshen/A2J)
