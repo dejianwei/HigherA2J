@@ -14,6 +14,15 @@ Official implementation of paper "Improved 3D hand pose estimation network based
 
 ![](./fig/highera2j.png)
 
+## 下载
+
+预训练模型和hands2017数据的预处理关键点文件通过百度云下载
+
+```
+链接：https://pan.baidu.com/s/124-mmIbdYgDkCZQOsEMu_A 
+提取码：oke0 
+```
+
 ## 效果
 
 ![](./fig/compare_nyu.png)
